@@ -130,3 +130,146 @@ And the above will compile...
 
 So, in a nutshell, we are achieving a polymorphic behaviour through compile time and not at runtime.
 
+## Practical Uses
+
+With all in mind about CRTP, how would you use this with functions?
+Example:
+
+```cpp
+template<typename D>
+struct B  {
+};
+
+
+struct D : public B<D> {
+};
+
+template<typename D>
+void func(B<D>* ptr) {
+}
+
+
+int main()
+{
+    B<D>* ptr = new D();
+    func(ptr);
+}
+```
+
+### Virtual like Functions
+
+Now, talking about compile time polymorphism, how would we achieve virtual like behaviour?
+
+We can do this:
+
+```cpp
+template<typename D>
+struct B  {
+    void f() {
+        static_cast<D*>(this)->f();
+    }
+};
+
+
+struct D : public B<D> {
+    void f()
+    {
+    }
+};
+```
+
+But what if `D` didn't define `f()` ? In that case there is an infinite recursion. Example:
+
+```cpp
+template<typename D>
+struct B  {
+    void f() {
+        cout << "Inside base class\n";
+        static_cast<D*>(this)->f();
+    }
+};
+
+
+struct D : public B<D> {
+};
+```
+
+In the above case, D::f() is B::f() which calls D::f(), which in turn calls B::f() because there is no implementation of D::f().
+
+To avoid a pure virtual function type behaviour, wthout having this infinite recursion problem, what you can do is, rename the implementation:
+
+And if the implementation function is not defined, then the compiler will throw error:
+
+Example:
+
+```cpp
+template<typename D>
+struct B  {
+    void f() {
+        static_cast<D*>(this)->f_imp();
+    }
+};
+
+
+struct D : public B<D> {
+    void f_imp() {
+    }
+};
+```
+
+And with this, you can also define a default implementation in the base class, so that it defaults to that implementation given that the derived class decides to not override it, example:
+
+
+```cpp
+template<typename D>
+struct B  {
+    void f() {
+        static_cast<D*>(this)->f_imp();
+    }
+    void f_imp() {
+        cout << "B::f_imp()\n";
+    }
+};
+
+struct D : public B<D> {
+    // void f_imp() {
+    //     cout << "D::f_imp()\n";
+    // }
+};
+```
+
+
+
+### Deletion of Object
+
+
+The main problem with CRTP kind of polymorphism is that the correct destructor won't be called. Consider an example:
+
+```cpp
+B<D>* ptr = new D();
+...
+...
+delete ptr;
+```
+
+This will call destructor of B and since there is no virtual'ity in the destructor, it wouldn't know that D's destructor needs to be called.
+But someone might think it could be straight forward as:
+
+```cpp
+~B() { static_cast<D*>(this)->~D(); }
+```
+But it is not that simple. The problem with this is:
+* When destructor of the base class is reached, the actual object is not of the derived type anymore and calling any member function would result in an undefined behaviour and therefore doesn't work.
+* Even if it worked somehow, as soon as ~D() finishes, ~B() will be called, and that would result in an infinite recursion
+
+
+One could also do this:
+
+```cpp
+template<typename D>
+void destroy(B<D>* obj) {
+    delete static_cast<D*>(obj);
+}
+```
+
+This can work, but what if someone forgets to call `destroy` ?
