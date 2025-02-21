@@ -62,4 +62,46 @@ struct D : public B<D> {
 ```
 
 This assumes that for type `D` in `B`, the there exists `D::T`, but D is not defined yet, and it depends on `B` itself. So `D` is an incomplete type and you cannot use an incomplete type like that.
+Anything that affects the size of the class must be fully declared. In this case, for class `B`, type `D` needs to be fully declared, but it is kind of an incomplete type.
+Note, the body of a templated function is not instantiated until its called. Also, if you have a reference of the types and pointers (the size of which are kind of fixed and helps the compiler determine the size of the Base Class), then its completely okay!!
+
+
+Note, the following code will not compile:
+
+
+```cpp
+template<typename D>
+struct B  {
+    D::value_type get() {
+        return static_cast<D*>(this)->get();
+    }
+};
+
+
+struct D : public B<D> {
+    using value_type = int;
+    value_type get() {
+        return 6;
+    }
+};
+```
+
+However, if you use `auto` instead and let the compiler deduce the type, then it should be fine. So, the following will compile:
+
+```cpp
+template<typename D>
+struct B  {
+    auto get() {
+        return static_cast<D*>(this)->get();
+    }
+};
+
+
+struct D : public B<D> {
+    using value_type = int;
+    value_type get() {
+        return 6;
+    }
+};
+```
 
