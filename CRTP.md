@@ -273,3 +273,7 @@ void destroy(B<D>* obj) {
 ```
 
 This can work, but what if someone forgets to call `destroy` ?
+
+Something that you can actually do is, maybe make the destructor as virtual, which would again bring back the overhead of it being virtual and moreover it would also result in increasing the size of the class because of it being virtual....
+
+
