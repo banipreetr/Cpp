@@ -44,3 +44,22 @@ int main() {
 
 
 That way, we can reduce the time overhead taken by virtual functions by using CRTP.
+
+### Problem with CRTP
+
+Size of Base Class cannot depend on Derived class. For example, the following code will not compile:
+
+```cpp
+template <typename D>
+struct B {
+    using T = D::T;
+    T* ptr_;
+};
+
+struct D : public B<D> {
+    using T = int;
+};
+```
+
+This assumes that for type `D` in `B`, the there exists `D::T`, but D is not defined yet, and it depends on `B` itself. So `D` is an incomplete type and you cannot use an incomplete type like that.
+
