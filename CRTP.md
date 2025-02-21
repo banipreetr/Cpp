@@ -105,3 +105,26 @@ struct D : public B<D> {
 };
 ```
 
+If you still need the nested type for some reason to declare the Base class, put it as a template parameter.
+Example:
+
+```cpp
+template<typename D, typename value_type>
+struct B  {
+    value_type val;
+    auto get() {
+        return static_cast<D*>(this)->get();
+    }
+};
+
+
+struct D : public B<D, int> {
+    using value_type = int;
+    value_type get() {
+        return val;
+    }
+};
+```
+
+And the above will compile...
+
