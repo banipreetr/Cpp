@@ -128,3 +128,5 @@ struct D : public B<D, int> {
 
 And the above will compile...
 
+So, in a nutshell, we are achieving a polymorphic behaviour through compile time and not at runtime.
+
