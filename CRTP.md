@@ -277,3 +277,135 @@ This can work, but what if someone forgets to call `destroy` ?
 Something that you can actually do is, maybe make the destructor as virtual, which would again bring back the overhead of it being virtual and moreover it would also result in increasing the size of the class because of it being virtual....
 
 
+### CRTP access control
+
+
+With virtual functions, you can do this:
+
+```cpp
+struct B {
+    virtual void f() = 0;
+};
+
+struct D : public B {
+    private:
+    void f() override {
+        cout << "In private mode\n";
+    }
+};
+
+int main()
+{
+    B* obj = new D();
+    obj->f();
+}
+```
+
+i.e, access a private function of derived class through runtime polymorphism. With CRTP, it can be a bit tricky...
+
+Example, the following code wouldn't compile:
+
+```cpp
+
+template<typename D>
+struct B  {
+    void f() {
+        static_cast<D*>(this)->f_imp();
+    }
+    private:
+    void f_imp() {
+        cout << "B::f_imp()\n";
+    }
+};
+
+struct D : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D::f_imp()\n";
+    }
+};
+```
+Rather than that, what if we declare the class B<D> as friend:
+
+```cpp
+template<typename D>
+struct B  {
+    void f() {
+        static_cast<D*>(this)->f_imp();
+    }
+    private:
+    void f_imp() {
+        cout << "B::f_imp()\n";
+    }
+};
+
+struct D : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D::f_imp()\n";
+    }
+    friend class B<D>;
+};
+```
+
+Also, you can make a mistake like this:
+
+```cpp
+struct D : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D::f_imp()\n";
+    }
+    friend class B<D>;
+};
+
+struct D1 : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D1::f_imp()\n";
+    }
+    friend class B<D1>;
+};
+```
+Focus on `struct D1 : public B<D>`. This is okay and would compile but this is a subtle error
+
+`B<D1>* obj = new D1()` won't compile although.
+
+What we can do is make the Base class abstract by making the constructor private and making type `D` as friend (so that it can access the constructor, otherwise it would complain)
+
+
+So
+```cpp
+template<typename D>
+struct B  {
+
+    friend D;
+    void f() {
+        static_cast<D*>(this)->f_imp();
+    }
+    private:
+    B() = default;
+    void f_imp() {
+        cout << "B::f_imp()\n";
+    }
+};
+
+struct D : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D::f_imp()\n";
+    }
+    friend class B<D>;
+};
+
+struct D1 : public B<D> {
+    private:
+    void f_imp() {
+        cout << "D1::f_imp()\n";
+    }
+    friend class B<D1>;
+};
+```
+wont compile as it would complain that the constructor of B<D>::B() is deleted for `D1`.
+
+
