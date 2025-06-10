@@ -97,3 +97,66 @@ int main()
 
 }
 ```
+
+We can also do type erasure without using inheritance. How we can do that is:
+
+
+```cpp
+template<typename TE> void erased_func(void* p) {
+    TE* q = static_cast<TE*>(p);
+    // .. do some work
+}
+```
+
+That way, what we are doing is, we are creating a function pointer of type `void(*)(void*)` which does the type erasure stuff and creates a function pointer like:
+```cpp
+void(*)(void*) fp = erased_func<int>;
+```
+
+So for our smart pointer example
+
+```cpp
+#include <bits/stdc++.h>
+
+template<typename T>
+class smartpointer
+{
+    public:
+        template <typename Deleter>
+        smartpointer(T* ptr, Deleter del_)
+        : ptr_{ptr}
+        , destroy_(invoke_destroy<Deleter>)
+        {
+            static_assert(sizeof(Deleter) <= sizeof(buf_));
+            ::new (static_cast<void*>(buf_)) Deleter(del_);
+        }
+        ~smartpointer()
+        {
+            this->destroy_(ptr_, buf_);
+        }
+    private:
+        using destroy_t = void(*)(T*, void*);
+        destroy_t destroy_;
+        template<typename Deleter>
+        static void invoke_destroy(T* p, void* d) {
+            (*static_cast<Deleter*>(d))(p);
+        }
+        alignas(16) char buf_[16];
+        T* ptr_;
+};
+
+int main()
+{
+    auto deleter = [](void* ptr) -> void {
+        std::cout << "Custom deleter called\n";
+        delete (int*)ptr;
+    };
+    smartpointer<int> sp(new int{5}, deleter);
+}
+```
+
+What we are doing is - 
+* We get `Deleter` in constructor and then we use that to create a function pointer (type erasure) to a static function of type `void(*)(T*, void*)`. T is fixed, `void*` is the type of deleter.
+* invoke_destroy is templated on the type of `Deleter`, so `destroy_` function pointer already has the information of `Deleter`, so we do not care about it anymore.
+* Now we store the `Deleter` object in `buf_` through placement new operator and then we just pass `buf_` at the destructor level when needed.
+  
