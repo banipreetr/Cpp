@@ -221,3 +221,51 @@ int main()
     smartpointer<int> sp(new int{5}, deleter);
 }
 ```
+
+
+### Concept - Model Pattern
+
+
+```cpp
+class Drawable {
+  struct Concept {
+    virtual ~Concept() = default;
+    virtual void draw(std::ostream&) const = 0;
+  };
+
+  template<typename T>
+  struct Model : Concept {
+    T obj;
+    Model(T&& x) : obj(std::move(x)) {}
+    void draw(std::ostream& os) const override {
+      obj.draw(os); // Forward call to the real object
+    }
+  };
+
+  std::unique_ptr<Concept> pimpl_;
+
+public:
+  template<typename T>
+  Drawable(T x)
+    : pimpl_(std::make_unique<Model<T>>(std::move(x)))
+  {}
+
+  void draw(std::ostream& os) const {
+    pimpl_->draw(os);
+  }
+};
+
+```
+
+And then we use it like: 
+
+```cpp
+std::vector<Drawable> shapes;
+shapes.emplace_back(Circle{});
+shapes.emplace_back(Square{});
+
+for (auto& d : shapes)
+  d.draw(std::cout);
+```
+
+without needing the Circle and Square class to inherit from Drawable.
